@@ -6,10 +6,19 @@ from pprint import pprint
 SHOE_SIZE = 6
 
 def deal_card(shoe):
+	"""Deals a random card from the shoe.
 
-	# Remove card from the shoe, don't return its value
+	Removes the selected card from its deck. If the draw empties the shoe,
+	the shoe is reinitialized to the configured size.
+
+	Args:
+		shoe: A list of decks representing the current shoe.
+
+	Returns:
+		The card that was dealt.
+	"""
+
 	random_deck_index = random.randint(0, len(shoe)-1)
-	# Make sure the selected deck has cards in it
 	while len(shoe[random_deck_index]) == 0:
 		random_deck_index = random.randint(0, len(shoe)-1)
 
@@ -19,7 +28,6 @@ def deal_card(shoe):
 	random_card = random_deck[random_card_index]
 	random_deck.remove(random_card)
 
-	# Null case, renew shoe if empty
 	if is_shoe_empty(shoe):
 		print("Renewing shoe...\n")
 		initialize_shoe(SHOE_SIZE, shoe)
@@ -28,29 +36,45 @@ def deal_card(shoe):
 
 	
 def calculate_score(hand):
+	"""Calculates the blackjack score for a hand.
+
+	Face cards count as 10. Aces are evaluated after the rest of the hand so
+	they can contribute either 11 or 1 without busting when possible.
+
+	Args:
+		hand: A list of cards in the player's or dealer's hand.
+
+	Returns:
+		The best score for the hand under the current ace-handling rules.
+	"""
 	total = 0
 	ace_count = 0
 	for card in hand:
 		if card == 'A':
-			# Ace cards will be calculated on a what-makes-more-sense basis
-			# So count the aces in the mean time
 			ace_count += 1
 		elif card == 'J' or card == 'Q' or card == 'K':
 			total += 10
 		else:
 			total += card
 
-	# Handle the needed aces
 	if ace_count > 0:
 		if total+ace_count*11 <= 21:
 			total = total + ace_count*11
 		else:
-			# You can't have two 11 count aces because then you will bust
+			# At most one ace can safely count as 11 in this simplified model.
 			total = total + 11 + (ace_count-1)*1
 
 	return total
 
 def is_shoe_empty(shoe):
+	"""Checks whether every deck in the shoe has been exhausted.
+
+	Args:
+		shoe: A list of decks representing the current shoe.
+
+	Returns:
+		True if all decks are empty. Otherwise, False.
+	"""
 	for deck in shoe:
 		if deck:
 			return False
@@ -58,13 +82,23 @@ def is_shoe_empty(shoe):
 	return True
 
 def initialize_shoe(shoe_size, shoe):
+	"""Populates the shoe with the requested number of fresh decks.
 
-	# Remove empty decks inside the shoe
+	If the shoe already exists but only contains empty decks, those placeholders
+	are removed before new decks are appended.
+
+	Args:
+		shoe_size: The number of decks to add to the shoe.
+		shoe: A list that stores the decks in the current shoe.
+
+	Returns:
+		The updated shoe list.
+	"""
+
 	if shoe:
 		while not any(shoe):
 			if not shoe:
 				break
-			#pprint(shoe)
 			shoe.remove([])	
 
 	for i in range(shoe_size):
@@ -73,6 +107,15 @@ def initialize_shoe(shoe_size, shoe):
 	return shoe
 
 def blackjack(shoe_size = 6, agent = None):
+	"""Runs the blackjack game loop.
+
+	The game supports either interactive keyboard input or an automated agent
+	that responds to the same prompts used for a human player.
+
+	Args:
+		shoe_size: The number of decks to include in the shoe.
+		agent: An optional agent object that supplies bet and action decisions.
+	"""
 
 	player_money = 10000
 	most_money = player_money
@@ -89,13 +132,13 @@ def blackjack(shoe_size = 6, agent = None):
 	shoe = []
 	SHOE_SIZE = shoe_size
 	initialize_shoe(SHOE_SIZE, shoe)
-	agent.set_shoe(shoe)
+	if agent is not None:
+		agent.set_shoe(shoe)
 	
 	print("Welcome to ML Blackjack!\n")
 
 	while 1:
 
-		# Game loop
 		player_hand = []
 		dealer_hand = []
 		game_over = False
@@ -109,7 +152,6 @@ def blackjack(shoe_size = 6, agent = None):
 			print(f"{game_option}\n")
 
 		if player_money < 50:
-			# The terminating case
 			game_over = True
 			print(f"You ran out of money...\n")
 		
@@ -123,11 +165,9 @@ def blackjack(shoe_size = 6, agent = None):
 			pprint(shoe)
 			continue
 		elif game_option == 'q':
-			# The terminating case
 			game_over = True
 
 		if game_over:
-			# End the program
 			win_pct = round(hands_won / total_hands * 100, 2)
 			quit(f"Take care!\n"+
 				f"Stats:\n"+
@@ -145,10 +185,8 @@ def blackjack(shoe_size = 6, agent = None):
 				f"Dealer wins by blackjack: {dealer_blackjack_count}\n"+
 				f"Win Rate: {win_pct}%")
 
-		# Take money from player
 		player_money -= hand_value
 
-		# Hand loop
 		for _ in range(2):
 			player_hand.append(deal_card(shoe))
 			dealer_hand.append(deal_card(shoe))
@@ -170,7 +208,7 @@ def blackjack(shoe_size = 6, agent = None):
 			if player_score > 21 or dealer_score == 21:
 				game_over = True
 			else:
-				prompt_2 = "Choose your option:\n\n(h) hit \n(p) stay \n(v) split\n\n"
+				prompt_2 = "Choose your option:\n\n(h) hit \n(p) stay\n\n"
 				print(prompt_2)
 
 				if agent == None: 
@@ -184,10 +222,9 @@ def blackjack(shoe_size = 6, agent = None):
 				else:
 					game_over = True
 
-			print("\n")
+				print("\n")
 
 
-		# Dealer's algorithm
 		while dealer_score != 0 and dealer_score < 17:
 			dealer_hand.append(deal_card(shoe))
 			dealer_score = calculate_score(dealer_hand)
@@ -229,7 +266,6 @@ def blackjack(shoe_size = 6, agent = None):
 		else:
 			exit("Generic Error!")
 
-		# Calculate some aggregates
 		total_hands += 1
 		if player_money > most_money:
 			most_money = player_money
