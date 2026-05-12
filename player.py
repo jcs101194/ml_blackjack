@@ -1,6 +1,7 @@
 import blackjack as b
 
 from pprint import pprint
+from q_table import QTable
 
 class Player:
 	"""Baseline blackjack agent driven by simple betting and hit logic."""
@@ -91,10 +92,6 @@ def hitting_algorithm(agent):
 
 	card_count = agent.get_good_card_count(score_limit)
 	good_card_prob = card_count / shoe_size
-	
-	pprint(agent.shoe)
-	print(score_limit)
-	print(good_card_prob)
 
 	if good_card_prob >= agent.confidence_threshold:
 		return 'h'
