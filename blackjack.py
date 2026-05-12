@@ -106,7 +106,7 @@ def initialize_shoe(shoe_size, shoe):
 
 	return shoe
 
-def blackjack(shoe_size = 6, agent = None):
+def game_loop(shoe_size = 6, agent = None):
 	"""Runs the blackjack game loop.
 
 	The game supports either interactive keyboard input or an automated agent
@@ -271,4 +271,4 @@ def blackjack(shoe_size = 6, agent = None):
 			most_money = player_money
 
 if __name__ == "__main__":
-	blackjack(6)
+	game_loop(6)
