@@ -11,6 +11,8 @@ from typing import Any
 
 CARD_TEMPLATE = ("A", 2, 3, 4, 5, 6, 7, 8, 9, 10, "J", "Q", "K")
 FACE_CARDS = {"J", "Q", "K"}
+HIGH_CARDS = {"A", 10, "J", "Q", "K"}
+LOW_CARDS = {2, 3, 4, 5, 6}
 BET_OPTIONS = (50, 100, 250, 500, 1000)
 ACTIONS = ("hit", "stay", "double_down", "split")
 
@@ -85,7 +87,12 @@ class BetContext:
     round_number: int
     cash: int
     available_bets: tuple[int, ...]
+    total_shoe_cards: int
     shoe_cards_remaining: int
+    shoe_high_cards_remaining: int
+    shoe_low_cards_remaining: int
+    shoe_advantage_count: int
+    shoe_true_count: float
     prompt: str
     stats: dict[str, Any]
 
@@ -219,6 +226,7 @@ class Shoe:
         self.shoe_size = shoe_size
         self.rng = rng or random.Random()
         self.shuffle_count = 0
+        self.total_cards = self.shoe_size * len(CARD_TEMPLATE)
         self._decks: list[list[Any]] = []
         self.reset()
 
@@ -265,6 +273,29 @@ class Shoe:
                 safe_count += 1
 
         return safe_count
+
+    def count_high_cards(self) -> int:
+        """Counts the remaining high-value cards in the shoe."""
+        return sum(1 for card in self.iter_cards() if card in HIGH_CARDS)
+
+    def count_low_cards(self) -> int:
+        """Counts the remaining low-value cards in the shoe."""
+        return sum(1 for card in self.iter_cards() if card in LOW_CARDS)
+
+    def player_advantage_count(self) -> int:
+        """Measures whether the shoe is high-card heavy or low-card heavy.
+
+        A positive value means more high cards than low cards remain, which is
+        usually better for the player when deciding how much to bet.
+        """
+        return self.count_high_cards() - self.count_low_cards()
+
+    def player_true_count(self) -> float:
+        """Normalizes the shoe advantage by the estimated decks remaining."""
+        decks_remaining = self.cards_remaining() / len(CARD_TEMPLATE)
+        if decks_remaining <= 0:
+            return 0.0
+        return self.player_advantage_count() / decks_remaining
 
     def deal_card(self) -> Any:
         """Deals a random card from a non-empty deck in the shoe."""
@@ -390,7 +421,12 @@ class BlackjackGame:
             round_number=self.round_number,
             cash=self.stats.cash,
             available_bets=available_bets,
+            total_shoe_cards=self.shoe.total_cards,
             shoe_cards_remaining=self.shoe.cards_remaining(),
+            shoe_high_cards_remaining=self.shoe.count_high_cards(),
+            shoe_low_cards_remaining=self.shoe.count_low_cards(),
+            shoe_advantage_count=self.shoe.player_advantage_count(),
+            shoe_true_count=round(self.shoe.player_true_count(), 4),
             prompt=prompt,
             stats=self.stats.to_dict(),
         )

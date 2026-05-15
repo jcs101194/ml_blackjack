@@ -14,7 +14,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from blackjack import BlackjackGame
-from player import Player, QPlayer
+from player import BET_ACTIONS, Player, QPlayer
 from q_table import QTable
 
 
@@ -24,6 +24,7 @@ class BlackjackService:
     def __init__(
         self,
         model_path: str,
+        bet_model_path: str = "runtime/blackjack_bet_q_table.json",
         mode: str = "q",
         shoe_size: int = 6,
         starting_cash: int = 10000,
@@ -38,7 +39,8 @@ class BlackjackService:
         """Initializes the live blackjack service.
 
         Args:
-            model_path: Location of the persisted Q-table on disk.
+            model_path: Location of the persisted action Q-table on disk.
+            bet_model_path: Location of the persisted betting Q-table on disk.
             mode: Player mode: `heuristic`, `q`, or `q-train`.
             shoe_size: Number of decks in the live shoe.
             starting_cash: Starting bankroll for the live session.
@@ -50,7 +52,8 @@ class BlackjackService:
             round_delay: Delay between rounds so front-end updates remain readable.
             save_every: Persist the Q-table every N rounds.
         """
-        self.model_path = Path(model_path)
+        self.action_model_path = Path(model_path)
+        self.bet_model_path = Path(bet_model_path)
         self.mode = mode
         self.q_epsilon = q_epsilon
         self.training_epsilon = training_epsilon
@@ -78,32 +81,51 @@ class BlackjackService:
             self.mode_note = "Running the heuristic player."
             return Player(preferred_bet=preferred_bet)
 
-        q_table = QTable.load(self.model_path)
+        action_q_table = QTable.load(self.action_model_path)
+        bet_q_table = QTable.load(self.bet_model_path, actions=BET_ACTIONS)
 
-        if self.mode == "q" and len(q_table) == 0:
+        if self.mode == "q" and len(action_q_table) == 0:
             self.mode_note = "No saved Q-table found. Falling back to the heuristic player."
             return Player(preferred_bet=preferred_bet, name="Heuristic Fallback")
 
         if self.mode == "q-train":
-            self.mode_note = "Running the Q-player with online learning enabled."
+            if len(bet_q_table) > 0:
+                self.mode_note = "Running the Q-player with online learning enabled for actions and bets."
+            else:
+                self.mode_note = "Running the Q-player with online learning enabled. Betting stays fixed until a bet policy is trained."
             return QPlayer(
-                q_table=q_table,
-                epsilon=self.training_epsilon,
-                alpha=self.alpha,
-                gamma=self.gamma,
+                action_q_table=action_q_table,
+                bet_q_table=bet_q_table,
+                action_epsilon=self.training_epsilon,
+                bet_epsilon=self.training_epsilon,
+                action_alpha=self.alpha,
+                bet_alpha=self.alpha,
+                action_gamma=self.gamma,
+                bet_gamma=0.0,
                 preferred_bet=preferred_bet,
                 training_enabled=True,
+                train_bet_policy=True,
+                use_bet_policy=len(bet_q_table) > 0,
                 name="Live Q Trainer",
             )
 
-        self.mode_note = "Running the Q-player in live inference mode."
+        if len(bet_q_table) > 0:
+            self.mode_note = "Running the Q-player in live inference mode with the trained bet policy."
+        else:
+            self.mode_note = "Running the Q-player in live inference mode with a fixed preferred bet."
         return QPlayer(
-            q_table=q_table,
-            epsilon=self.q_epsilon,
-            alpha=self.alpha,
-            gamma=self.gamma,
+            action_q_table=action_q_table,
+            bet_q_table=bet_q_table,
+            action_epsilon=self.q_epsilon,
+            bet_epsilon=0.0,
+            action_alpha=self.alpha,
+            bet_alpha=self.alpha,
+            action_gamma=self.gamma,
+            bet_gamma=0.0,
             preferred_bet=preferred_bet,
             training_enabled=False,
+            train_bet_policy=False,
+            use_bet_policy=len(bet_q_table) > 0,
             name="Live Q Player",
         )
 
@@ -128,7 +150,8 @@ class BlackjackService:
 
         self.rounds_since_save += 1
         if self.rounds_since_save >= self.save_every:
-            self.player.q_table.save(self.model_path)
+            self.player.action_q_table.save(self.action_model_path)
+            self.player.bet_q_table.save(self.bet_model_path)
             self.rounds_since_save = 0
 
     def _run(self) -> None:
@@ -151,8 +174,11 @@ class BlackjackService:
             snapshot["service"] = {
                 "mode": self.mode,
                 "note": self.mode_note,
-                "model_path": str(self.model_path),
-                "q_table_states": len(self.player.q_table) if isinstance(self.player, QPlayer) else 0,
+                "action_model_path": str(self.action_model_path),
+                "bet_model_path": str(self.bet_model_path),
+                "action_q_table_states": len(self.player.action_q_table) if isinstance(self.player, QPlayer) else 0,
+                "bet_q_table_states": len(self.player.bet_q_table) if isinstance(self.player, QPlayer) else 0,
+                "q_table_states": len(self.player.action_q_table) if isinstance(self.player, QPlayer) else 0,
                 "worker_alive": bool(self.worker_thread and self.worker_thread.is_alive()),
                 "last_error": self.last_error,
             }
@@ -239,7 +265,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model-path",
         default="runtime/blackjack_q_table.json",
-        help="Path to the saved Q-table model.",
+        help="Path to the saved action Q-table model.",
+    )
+    parser.add_argument(
+        "--bet-model-path",
+        default="runtime/blackjack_bet_q_table.json",
+        help="Path to the saved betting Q-table model.",
     )
     parser.add_argument("--q-epsilon", type=float, default=0.02, help="Exploration rate for live Q mode.")
     parser.add_argument(
@@ -260,6 +291,7 @@ def main() -> None:
     args = parse_args()
     service = BlackjackService(
         model_path=args.model_path,
+        bet_model_path=args.bet_model_path,
         mode=args.mode,
         shoe_size=args.shoe_size,
         starting_cash=args.starting_cash,
@@ -284,7 +316,8 @@ def main() -> None:
         server.server_close()
         service.stop()
         if isinstance(service.player, QPlayer):
-            service.player.q_table.save(service.model_path)
+            service.player.action_q_table.save(service.action_model_path)
+            service.player.bet_q_table.save(service.bet_model_path)
 
 
 if __name__ == "__main__":

@@ -127,14 +127,18 @@ class QTable:
         path.write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
 
     @classmethod
-    def load(cls, input_path: str | Path) -> "QTable":
+    def load(
+        cls,
+        input_path: str | Path,
+        actions: tuple[str, ...] | None = None,
+    ) -> "QTable":
         """Loads a Q-table from disk if it exists."""
         path = Path(input_path)
         if not path.exists():
-            return cls()
+            return cls(actions=actions or DEFAULT_ACTIONS)
 
         payload = json.loads(path.read_text(encoding="utf-8"))
-        q_table = cls(actions=tuple(payload.get("actions", DEFAULT_ACTIONS)))
+        q_table = cls(actions=tuple(payload.get("actions", actions or DEFAULT_ACTIONS)))
         q_table._table = {
             state_key: {action: float(value) for action, value in action_values.items()}
             for state_key, action_values in payload.get("states", {}).items()

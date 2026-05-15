@@ -56,12 +56,13 @@ def main() -> None:
 
     q_table = QTable.load(model_path)
     agent = QPlayer(
-        q_table=q_table,
-        epsilon=args.epsilon,
-        alpha=args.alpha,
-        gamma=args.gamma,
+        action_q_table=q_table,
+        action_epsilon=args.epsilon,
+        action_alpha=args.alpha,
+        action_gamma=args.gamma,
         preferred_bet=args.preferred_bet,
         training_enabled=True,
+        train_bet_policy=False,
         name="Q Trainer",
     )
     game = BlackjackGame(

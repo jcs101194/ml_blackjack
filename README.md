@@ -138,6 +138,22 @@ Training outputs:
 - training summary JSON
 - recent round samples in the summary output
 
+### Train A Separate Betting Policy
+
+Once the hand-action policy is trained, you can freeze it and train a separate betting policy:
+
+```bash
+python train_bet_policy.py \
+  --episodes 5000 \
+  --action-model-path runtime/blackjack_q_table.json \
+  --bet-model-path runtime/blackjack_bet_q_table.json
+```
+
+This keeps:
+
+- the hand-action policy fixed
+- the bet policy learning from bankroll and shoe-count signals
+
 ## Live API Server
 
 The live server runs a blackjack worker continuously in the background and exposes live state over HTTP.
