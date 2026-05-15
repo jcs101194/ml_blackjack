@@ -1,160 +1,184 @@
 # ML Blackjack
 
-This directory contains a small blackjack environment and a baseline simulation that can be used as the starting point for a Q-table blackjack agent.
+This project is a reusable blackjack engine built for three jobs:
 
-Right now the project has two main pieces:
+- simulate blackjack hands locally
+- train a Q-table agent
+- power a live portfolio page through a small Python API server
 
-- `blackjack.py`: the game environment, card dealing logic, scoring, bankroll tracking, and game loop
-- `player.py`: a simple automated player that bets a fixed amount and decides whether to hit based on the remaining cards in the shoe
+The code now supports:
 
-## Current Status
-
-Implemented:
-
-- Multi-deck shoe setup
-- Random card dealing from the shoe
-- Hand score calculation
-- Interactive blackjack loop
-- Agent hook for automated decisions
-- Basic experiment runner in `player.py`
-- End-of-run stats such as wins, busts, bankroll, and win rate
-
-Planned next:
-
-- Q-learning agent
-- Q-table state/action design
-- Split-hand support in the game loop
-- Cleaner training and evaluation scripts
-
-## Project Files
-
-### `blackjack.py`
-
-Core environment logic:
-
-- Builds and refreshes the shoe
-- Deals cards
-- Calculates hand scores
-- Runs the full blackjack loop
-- Accepts either human input or an agent object with a `decide(...)` method
-
-The environment currently supports:
-
-- Betting choices of `50`, `100`, `250`, `500`, or `1000`
-- Player actions `hit` and `stay`
-- A visible prompt for `split`, although split behavior has not been implemented yet
-
-### `player.py`
-
-Contains a small baseline agent:
-
-- `betting_algorithm()` always places the minimum bet
-- `hitting_algorithm(agent)` estimates the probability of drawing a safe card based on the remaining shoe
-- `Player` stores the current shoe, hand, and score so decision logic can inspect the environment
-
-This is not a learned policy yet. It is a hand-written heuristic that can be used as a comparison point once the Q-table agent is added.
-
-## How It Works
-
-### Shoe
-
-The shoe is represented as a list of decks. Each deck contains:
-
-`['A', 2, 3, 4, 5, 6, 7, 8, 9, 10, 'J', 'Q', 'K']`
-
-By default, the game uses a 6-deck shoe.
-
-### Agent Interface
-
-An agent can be passed into `blackjack(...)` as long as it provides:
-
-- `set_shoe(shoe)`
-- `set_hand(hand)`
-- `set_score(score)`
-- `decide(prompt)`
-
-The environment calls `decide(prompt)` for:
-
-- bet selection
-- hit/stay decisions during a hand
-
-### Baseline Hitting Strategy
-
-The current automated player:
-
-1. Computes the highest card it can safely draw without busting
-2. Counts how many cards remaining in the shoe are "good"
-3. Estimates the probability of a safe draw
-4. Hits if that probability is above a confidence threshold
-
-This makes `player.py` a useful smoke test for the environment before adding reinforcement learning.
-
-## Running the Project
-
-### Requirements
-
-- Python 3
-- `readchar`
-
-Install the dependency with:
-
-```bash
-pip install readchar
-```
-
-### Run the interactive game
-
-```bash
-python3 blackjack.py
-```
-
-### Run the automated baseline simulation
-
-```bash
-python3 player.py
-```
-
-## Current Limitations
-
-- Split is shown in the prompt but not implemented in game state or payout handling
-- The baseline player is heuristic, not learned
-- Dealer information is currently fully visible during play, which is convenient for testing but differs from standard blackjack
-- Ace scoring logic is still simple and may need refinement for edge cases with multiple aces
-- There is no dedicated training loop, persistence format, or Q-table module yet
-
-## Suggested Next Steps
-
-When extending this into a Q-learning project, a reasonable order is:
-
-1. Define the state representation
-2. Define the action space
-3. Add split support to the environment
-4. Create a Q-table structure
-5. Implement training episodes and update rules
-6. Compare the learned policy against the current heuristic player
-
-Possible state features:
-
-- player total
-- usable ace or not
-- dealer up-card
-- pair/splittable hand or not
-- shoe information, if card counting is meant to be part of the state
-
-Possible actions:
-
-- hit
-- stay
-- split
-- optionally bet sizing as a separate decision process
-
-## Goal of This Directory
-
-The short-term goal is to turn this simplified blackjack simulator into a reinforcement learning playground:
-
-- a reusable blackjack environment
-- a Q-table agent
+- a dedicated `Shoe` class
+- split hands
+- double downs
+- a heuristic baseline player
+- a Q-table-backed player
 - a training script
-- evaluation against the current rule-based player
+- a persistent API worker for the website
 
-This README documents the current foundation before those pieces are added.
+## Project Layout
+
+- `blackjack.py`
+  - core engine
+  - scoring helpers
+  - `Shoe`
+  - round/session state
+  - event log used by the API
+- `player.py`
+  - heuristic `Player`
+  - `QPlayer`
+- `q_table.py`
+  - Q-value storage
+  - epsilon-greedy action selection
+  - JSON save/load
+- `train_q_agent.py`
+  - offline Q-table training entry point
+- `server.py`
+  - persistent background worker
+  - HTTP API for live state
+- `main.py`
+  - short local smoke-test runner
+
+## Blackjack Rules
+
+Implemented action rules:
+
+- `hit`
+- `stay`
+- `double_down`
+- `split`
+
+Current split and double rules:
+
+- double down is only allowed on the first action of a hand
+- split is only allowed on exact opening pairs
+- no re-splitting
+- no double after split
+- split aces receive one additional card each
+
+## Engine Design
+
+The old prompt-driven game loop has been replaced with a reusable engine API.
+
+Key pieces:
+
+- `BlackjackGame.play_round(agent)`
+- `Shoe.deal_card()`
+- `BlackjackGame.get_state_snapshot()`
+
+Agents now receive structured contexts instead of raw prompt strings:
+
+- `BetContext`
+- `ActionContext`
+
+That makes the same engine usable for:
+
+- heuristic simulation
+- Q-table training
+- a live website feed
+
+## Q-Table State
+
+The Q-player currently encodes each decision state with:
+
+- player score
+- dealer up-card value
+- usable ace flag
+- pair value if the hand is splittable
+- double-down eligibility
+- split-hand flag
+
+The Q-table stores action values for:
+
+- `hit`
+- `stay`
+- `double_down`
+- `split`
+
+## Training
+
+Run a short training session:
+
+```bash
+python train_q_agent.py --episodes 5000
+```
+
+Useful options:
+
+```bash
+python train_q_agent.py \
+  --episodes 10000 \
+  --model-path runtime/blackjack_q_table.json \
+  --summary-path runtime/training_summary.json
+```
+
+Training outputs:
+
+- saved Q-table JSON
+- training summary JSON
+- recent round samples in the summary output
+
+## Live API Server
+
+The live server runs a blackjack worker continuously in the background and exposes live state over HTTP.
+
+Start the API:
+
+```bash
+python server.py --mode q --model-path runtime/blackjack_q_table.json
+```
+
+Useful modes:
+
+- `heuristic`
+- `q`
+- `q-train`
+
+Default endpoint:
+
+- `/api/blackjack/state`
+
+Health endpoint:
+
+- `/api/blackjack/health`
+
+Example:
+
+```bash
+python server.py --host 127.0.0.1 --port 8765 --mode q-train
+```
+
+## Front-End Integration
+
+The portfolio page lives at:
+
+- `actual-website/techscapades/ml/blackjack.html`
+
+That page is designed to poll the blackjack API and render:
+
+- bankroll
+- time at table
+- wins, losses, draws
+- live hand state
+- recent prompts and decisions
+- recent resolved round details
+
+Recommended deployment setup:
+
+- run `server.py` as a persistent process
+- proxy `/api/blackjack/*` to that process from the main site
+- point the page at the same-origin API path
+
+## Local Smoke Test
+
+Run a short heuristic session and print the resulting snapshot:
+
+```bash
+python main.py
+```
+
+## Notes
+
+- The shoe still uses the project's simplified rank-based deck representation.
+- The Q-player supports online updates, but offline training with `train_q_agent.py` is the intended path before serving a live model.
+- The API keeps a recent event log so the website can show prompts and decisions without scraping terminal output.
