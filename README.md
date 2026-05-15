@@ -1,5 +1,25 @@
 # ML Blackjack
 
+## Quick Start
+
+Train a model:
+
+```bash
+python train_q_agent.py --episodes 5000
+```
+
+Start the live API:
+
+```bash
+python server.py --mode q --model-path runtime/blackjack_q_table.json
+```
+
+For continuous learning on the live worker instead:
+
+```bash
+python server.py --mode q-train
+```
+
 This project is a reusable blackjack engine built for three jobs:
 
 - simulate blackjack hands locally

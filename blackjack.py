@@ -181,7 +181,7 @@ class SessionStats:
     def to_dict(self) -> dict[str, Any]:
         """Serializes stats for API responses."""
         total_decisions = self.hands_won + self.house_won + self.draws
-        win_rate = round(self.hands_won / total_decisions * 100, 2) if total_decisions else 0.0
+        win_rate = round(self.hands_won / total_decisions, 4) if total_decisions else 0.0
 
         return {
             "starting_cash": self.starting_cash,
