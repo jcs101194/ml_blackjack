@@ -21,12 +21,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--starting-cash", type=int, default=10000, help="Starting bankroll.")
     parser.add_argument(
         "--action-model-path",
-        default="runtime/blackjack_q_table.json",
+        default="checkpoints/blackjack_q_table.json",
         help="Path to the already-trained action Q-table.",
     )
     parser.add_argument(
         "--bet-model-path",
-        default="runtime/blackjack_bet_q_table.json",
+        default="checkpoints/blackjack_bet_q_table.json",
         help="Path where the betting-policy Q-table should be saved.",
     )
     parser.add_argument(

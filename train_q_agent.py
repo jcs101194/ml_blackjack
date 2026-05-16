@@ -25,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--preferred-bet", type=int, default=50, help="Default bet for the agent.")
     parser.add_argument(
         "--model-path",
-        default="runtime/blackjack_q_table.json",
+        default="checkpoints/blackjack_q_table.json",
         help="Path where the trained Q-table should be saved.",
     )
     parser.add_argument(

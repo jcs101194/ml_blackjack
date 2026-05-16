@@ -24,7 +24,7 @@ class BlackjackService:
     def __init__(
         self,
         model_path: str,
-        bet_model_path: str = "runtime/blackjack_bet_q_table.json",
+        bet_model_path: str = "checkpoints/blackjack_bet_q_table.json",
         mode: str = "q",
         shoe_size: int = 6,
         starting_cash: int = 10000,
@@ -264,12 +264,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--preferred-bet", type=int, default=50, help="Default player bet.")
     parser.add_argument(
         "--model-path",
-        default="runtime/blackjack_q_table.json",
+        default="checkpoints/blackjack_q_table.json",
         help="Path to the saved action Q-table model.",
     )
     parser.add_argument(
         "--bet-model-path",
-        default="runtime/blackjack_bet_q_table.json",
+        default="checkpoints/blackjack_bet_q_table.json",
         help="Path to the saved betting Q-table model.",
     )
     parser.add_argument("--q-epsilon", type=float, default=0.02, help="Exploration rate for live Q mode.")

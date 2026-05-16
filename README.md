@@ -11,7 +11,7 @@ python train_q_agent.py --episodes 5000
 Start the live API:
 
 ```bash
-python server.py --mode q --model-path runtime/blackjack_q_table.json
+python server.py --mode q --model-path checkpoints/blackjack_q_table.json
 ```
 
 For continuous learning on the live worker instead:
@@ -128,7 +128,7 @@ Useful options:
 ```bash
 python train_q_agent.py \
   --episodes 10000 \
-  --model-path runtime/blackjack_q_table.json \
+  --model-path checkpoints/blackjack_q_table.json \
   --summary-path runtime/training_summary.json
 ```
 
@@ -138,6 +138,8 @@ Training outputs:
 - training summary JSON
 - recent round samples in the summary output
 
+Learned Q-values are now stored under `checkpoints/` by default.
+
 ### Train A Separate Betting Policy
 
 Once the hand-action policy is trained, you can freeze it and train a separate betting policy:
@@ -145,14 +147,26 @@ Once the hand-action policy is trained, you can freeze it and train a separate b
 ```bash
 python train_bet_policy.py \
   --episodes 5000 \
-  --action-model-path runtime/blackjack_q_table.json \
-  --bet-model-path runtime/blackjack_bet_q_table.json
+  --action-model-path checkpoints/blackjack_q_table.json \
+  --bet-model-path checkpoints/blackjack_bet_q_table.json
 ```
 
 This keeps:
 
 - the hand-action policy fixed
 - the bet policy learning from bankroll and shoe-count signals
+
+### Evaluate The Betting Policy
+
+To compare the learned bet policy against fixed-bet baselines:
+
+```bash
+python evaluate_bet_policy.py \
+  --episodes 10000 \
+  --trials 5 \
+  --action-model-path checkpoints/blackjack_q_table.json \
+  --bet-model-path checkpoints/blackjack_bet_q_table.json
+```
 
 ## Live API Server
 
@@ -161,7 +175,7 @@ The live server runs a blackjack worker continuously in the background and expos
 Start the API:
 
 ```bash
-python server.py --mode q --model-path runtime/blackjack_q_table.json
+python server.py --mode q --model-path checkpoints/blackjack_q_table.json
 ```
 
 Useful modes:
